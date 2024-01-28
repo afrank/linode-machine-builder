@@ -86,7 +86,6 @@ trap cancel INT
 
 if [ ! -f $FILE ]; then
     echo "Creating $FILE"
-    #dd if=/dev/zero of=$FILE bs=1 count=0 seek=$IMGSIZE
     truncate -s $IMGSIZE $FILE
 fi
 
@@ -141,7 +140,9 @@ chroot $MNT_DIR mount -t $BOOT_FS ${DISK}p1 $BOOT_PATH || fail "cannot mount $BO
 chroot $MNT_DIR mount -t proc none /proc || fail "cannot mount /proc"
 chroot $MNT_DIR mount -t sysfs none /sys || fail "cannot mount /sys"
 
-LANG=C DEBIAN_FRONTEND=noninteractive chroot $MNT_DIR apt install -y --allow-unauthenticated --allow-downgrades --allow-remove-essential --allow-change-held-packages -q $BOOT_PKG ${EXTRA_INCLUDES//,/ } || fail "cannot install $BOOT_PKG ${EXTRA_INCLUDES//,/ }"
+export DEBIAN_FRONTEND=noninteractive
+export LANG=C
+chroot $MNT_DIR apt install -y --allow-unauthenticated --allow-downgrades --allow-remove-essential --allow-change-held-packages -q $BOOT_PKG ${EXTRA_INCLUDES//,/ } || fail "cannot install $BOOT_PKG ${EXTRA_INCLUDES//,/ }"
 
 if [[ ${ENABLE_LISH:-0} -eq 1 ]]; then
     echo 'GRUB_GFXPAYLOAD_LINUX=text' >> $MNT_DIR/etc/default/grub
