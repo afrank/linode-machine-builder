@@ -30,10 +30,19 @@ OVERRIDE_EFI_MODE=${OVERRIDE_EFI_MODE:-1}
 # comma-delimited environment variable EXTRA_INCLUDES
 INCLUDES="openssh-server,init,iproute2,xz-utils,wget,parted,curl,dosfstools,vim,python3,initramfs-tools,ca-certificates,dbus,cloud-utils,cloud-initramfs-growroot,zstd,locales-all,libpam-systemd,dialog,apt-utils,iputils-ping"
 
+NAMESERVER=${NAMESERVER:-8.8.8.8}
+
 IMGSIZE=${IMGSIZE:-2G}
 
 OUTDIR=${OUTDIR:-./}
 FILE=$OUTDIR/base.img
+
+# The name of the final file we produce
+OUTFILE=$OUTDIR/${OUTFILE:-base.img.gz}
+
+# Specify the name of the ssh pubkey to use. This file must be present
+# in the docker CWD. If not present, we will generate an RSA key.
+PUBKEY=$OUTDIR/${PUBKEY:-$LABEL-id_rsa.pub}
 
 NETWORK_MATCH="en*"
 
@@ -57,14 +66,18 @@ case $DISTRO in
 esac
 
 case $BOOT_MODE in
-    bios|legacy)
+    legacy)
+        bootnum=1
+        rootnum=2
         BOOT_PATH=/boot
         BOOT_FS=ext4
         BOOT_ARGS="sync 0       2"
         BOOT_PKG="$BOOT_PKG grub-pc"
         BOOT_TARGET="--target=i386-pc"
     ;;
-    uefi|efi)
+    efi)
+        bootnum=2
+        rootnum=3
         BOOT_PATH=/boot/efi
         BOOT_FS=vfat
         BOOT_ARGS="umask=0077 0       1"
@@ -112,9 +125,7 @@ DISK=$(losetup -f)
 losetup $DISK $FILE || exit 2
 
 case $BOOT_MODE in
-    bios|legacy)
-        bootnum=1
-        rootnum=2
+    legacy)
         parted -a optimal --script -- $DISK \
           mklabel msdos \
           unit mib \
@@ -122,9 +133,7 @@ case $BOOT_MODE in
           set 1 boot on \
           mkpart primary 256 -1
     ;;
-    efi|uefi)
-        bootnum=2
-        rootnum=3
+    efi)
         parted -a optimal --script -- $DISK \
           mklabel gpt \
           unit mib \
@@ -210,17 +219,22 @@ fi
 
 mkdir -vp $MNT_DIR/root/.ssh
 chmod 750 $MNT_DIR/root/.ssh
-if [[ ! -e $OUTDIR/$LABEL-id_rsa.pub ]]; then
-    ssh-keygen -t rsa -b 4096 -f $OUTDIR/$LABEL-id_rsa -q -N "" || exit 2
-    [[ "$SUDO_USER" ]] && chown $SUDO_USER $OUTDIR/$LABEL-id_rsa $OUTDIR/$LABEL-id_rsa.pub
+if [[ ! -e $PUBKEY ]]; then
+    case $PUBKEY in
+        *rsa*) ssh-keygen -t rsa -b 4096 -f ${PUBKEY//.pub} -q -N "" || exit 2 ;;
+	*ed25519*) ssh-keygen -t ed25519 -f ${PUBKEY//.pub} -q -N "" || exit 2 ;;
+	*ecdsa*) keygen -t ecdsa -b 521 -f ${PUBKEY//.pub} -q -N "" || exit 2 ;;
+        *) echo Pubkey missing and could not find one to generate.; exit 1 ;;
+    esac
+    [[ "$SUDO_USER" ]] && chown $SUDO_USER $PUBKEY ${PUBKEY//.pub}
 fi
 
-cat $OUTDIR/$LABEL-id_rsa.pub > $MNT_DIR/root/.ssh/authorized_keys
+cat $PUBKEY > $MNT_DIR/root/.ssh/authorized_keys
 chmod 640 $MNT_DIR/root/.ssh/authorized_keys
 
 truncate -s0 $MNT_DIR/etc/machine-id
 
-echo nameserver 8.8.8.8 > $MNT_DIR/etc/resolv.conf
+echo nameserver $NAMESERVER > $MNT_DIR/etc/resolv.conf
 
 cleanup
 
@@ -233,3 +247,7 @@ if [[ "$SUDO_USER" ]]; then
     chown $SUDO_USER:$SUDO_USER $FILE
 fi
 
+if [[ "$FILE" != "$OUTFILE" ]]; then
+    [[ -e $OUTFILE ]] && rm -f $OUTFILE
+    mv -f $FILE $OUTFILE
+fi

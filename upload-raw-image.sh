@@ -1,18 +1,19 @@
 #!/bin/bash
 
 filename=$1
-region=${2:-us-sea}
-label=$3
+label=${2:-$LABEL}
+
+REGION=${REGION:-us-sea}
 
 if [[ ! -e $filename || ! "$filename" =~ ".img.gz" ]]; then
-    echo "Usage: $0 <filename> [region] [label]"
+    echo "Usage: $0 <filename> [label]"
     echo "Filename must end with .img.gz"
     exit 2
 fi
 
 [[ "$label" ]] || label=${filename//.img.gz}-$(date +%F)
 
-linode-cli image-upload --label $label --region $region $filename || exit 2
+linode-cli image-upload --label $label --region $REGION $filename || exit 2
 
 sleep 2
 
@@ -38,4 +39,4 @@ while [ 1 ]; do
     fi
 done
 
-echo Done.
+echo Done. $image_id is ready -- Status:$stat

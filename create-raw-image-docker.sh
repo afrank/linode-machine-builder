@@ -10,14 +10,6 @@ ENABLE_LISH=1
 # be overriden by setting OVERRIDE_EFI_MODE=0
 BOOT_MODE=efi
 
-# DISTRO=debian
-# RELEASE=sid
-# IMGSIZE=2G
-
-# DISTRO=ubuntu
-# RELEASE=jammy
-# IMGSIZE=4G # ubuntu needs a bigger base rootfs
-
 if [[ ! "$USER" = "root" ]]; then
     echo "Error: This command must be run with superuser privileges. Sorry."
     exit 2

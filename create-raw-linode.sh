@@ -1,13 +1,13 @@
 #!/bin/bash
 
-#machine_image=private/23563388 # sid-base-2024-01-27
 machine_image=$1
 label=$2
-region=${3:-us-sea}
-plan=${4:-g6-nanode-1}
+plan=${3:-g6-nanode-1}
+
+REGION=${REGION:-us-sea}
 
 if [[ ! "$machine_image" || ! "$label" ]]; then
-    echo "Usage: $0 <machine_image> <label> [region] [plan]"
+    echo "Usage: $0 <machine_image> <label> [plan]"
     exit 2
 fi
 
