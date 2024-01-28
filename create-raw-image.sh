@@ -220,6 +220,8 @@ chmod 640 $MNT_DIR/root/.ssh/authorized_keys
 
 truncate -s0 $MNT_DIR/etc/machine-id
 
+echo nameserver 8.8.8.8 > $MNT_DIR/etc/resolv.conf
+
 cleanup
 
 [[ -e $FILE.gz ]] && rm -f $FILE.gz
