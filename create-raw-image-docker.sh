@@ -3,6 +3,13 @@
 ENABLE_CLOUDINIT=1
 ENABLE_LISH=1
 
+# a note about EFI support:
+# setting BOOT_MODE to efi will enable EFI support.
+# however, since Linode doesn't currently support EFI,
+# grub-pc will be used in the final image. This can
+# be overriden by setting OVERRIDE_EFI_MODE=0
+BOOT_MODE=efi
+
 # DISTRO=debian
 # RELEASE=sid
 # IMGSIZE=2G

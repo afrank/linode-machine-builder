@@ -21,7 +21,9 @@ ENABLE_LISH=${ENABLE_LISH:-1}
 # growpart /dev/sda 2 && resize2fs /dev/sda2
 ENABLE_CLOUDINIT=${ENABLE_CLOUDINIT:-1}
 
-OUTDIR=${OUTDIR:-./}
+# Linode doesn't support efi mode, so even if we enable it in our
+# image, override it with grub-pc so the image is bootable.
+OVERRIDE_EFI_MODE=${OVERRIDE_EFI_MODE:-1}
 
 # These are the packages installed during debootstrap. Extra packages 
 # installed after the base system is built can be added with the
@@ -29,6 +31,8 @@ OUTDIR=${OUTDIR:-./}
 INCLUDES="openssh-server,init,iproute2,xz-utils,wget,parted,curl,dosfstools,vim,python3,initramfs-tools,ca-certificates,dbus,cloud-utils,cloud-initramfs-growroot,zstd,locales-all,libpam-systemd,dialog,apt-utils,iputils-ping"
 
 IMGSIZE=${IMGSIZE:-2G}
+
+OUTDIR=${OUTDIR:-./}
 FILE=$OUTDIR/base.img
 
 NETWORK_MATCH="en*"
@@ -197,6 +201,12 @@ chroot $MNT_DIR systemctl enable ssh || fail "failed to enable sshd"
 
 sed -i "s|${DISK}p$bootnum|/dev/sda$bootnum|g" $MNT_DIR/boot/grub/grub.cfg
 sed -i "s|${DISK}p$rootnum|/dev/sda$rootnum|g" $MNT_DIR/boot/grub/grub.cfg
+
+if [[ "$BOOT_MODE" = "efi" && ${OVERRIDE_EFI_MODE:-0} -eq 1 ]]; then
+    chroot $MNT_DIR apt install -y --allow-unauthenticated --allow-downgrades --allow-remove-essential --allow-change-held-packages -q grub-pc || fail "failed overriding grub"
+    chroot $MNT_DIR grub-install --target=i386-pc $DISK || fail "failed overriding grub"
+    chroot $MNT_DIR update-grub || fail "failed overriding grub"
+fi
 
 mkdir -vp $MNT_DIR/root/.ssh
 chmod 750 $MNT_DIR/root/.ssh
