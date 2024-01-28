@@ -8,6 +8,7 @@ You will need to have docker installed, and you will need sudo access. This shou
 
 Tl;dr:
 ```
+# sudo DISTRO=debian RELEASE=sid IMGSIZE=2G ./create-raw-image-docker.sh
 sudo DISTRO=ubuntu RELEASE=jammy IMGSIZE=4G ./create-raw-image-docker.sh
 ./upload-raw-image.sh base.img.gz us-sea my-machine-image-1
 image_id=$(linode-cli images list --label my-machine-image-1 --json | jq -r '.[0].id')
