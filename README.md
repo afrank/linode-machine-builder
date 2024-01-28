@@ -1,10 +1,10 @@
 # linode-machine-builder
 
-This is a set of tools for building machine images that can be uploaded to Linode and run as direct-disk VMs.
+This is a set of tools for building machine images that can be uploaded to Linode and run as direct-disk VMs. Some of the tools here require [linode-cli](https://www.linode.com/docs/products/tools/cli/get-started/).
 
 # How to use
 
-You will need to have docker installed, and you will need sudo access. This should work on mac but I haven't tested it yet. You will also need linode-cli with working API access.
+You can run this directly or from docker, either way will require superuser privileges. This should work on Intel mac but my mac is arm64 so I haven't tested it. You will also need linode-cli with working API access for the upload and create linode scripts.
 
 Tl;dr:
 ```
@@ -33,10 +33,6 @@ The image is built with `create-raw-image.sh`. This tool requires the following 
 
 The preferred method of running `create-raw-image.sh` is via docker by using `create-raw-image-docker.sh`. The requirements are docker support, and you must be able to run a privileged container as superuser. The reason privileged superuser is required is the process creates a loopback device in /dev.
 
-#### A note about rootfs resizing ####
-
-When you create a linode from your image, the disk you get will be larger than the image you created, so some process needs to resize your image to fit your disk. cloud-init will handle this if you choose to install it. If you don't install it, you can still perform this operation on your live disk (as long as you're increasing the size, not decreasing). The first time your vm boots, you can login and run these commands to resize it. Make note of your rootfs partition, if you selected legacy, it's sda2, if you selected efi, it's sda3: `growpart /dev/sda 3 && resize2fs /dev/sda3`
-
 ## Uploading the image
 
 The image can be uploaded to Linode as a machine image using the `upload-raw-image.sh` command. Before you run this, you should run `linode-cli linodes list` to make sure linode-cli is working and your Personal Access Token has been set up. If not, follow the directions produced by linode-cli to set it up. The command will poll the image status until it's available.
@@ -54,4 +50,8 @@ image_id=$(linode-cli images list --label my-test-image --json | jq -r '.[0].id'
 
 REGION=us-sea ./create-raw-linode.sh $image_id my-linode-1 [g6-nanode-1]
 ```
+
+#### A note about rootfs resizing ####
+
+When you create a linode from your image, the disk you get will be larger than the image you created, so some process needs to resize your image to fit your disk. **cloud-init will handle this if you choose to install it.** If you don't install it, you can still perform this operation on your live disk (as long as you're increasing the size, not decreasing). The first time your vm boots, you can login and run these commands to resize it. Make note of your rootfs partition, if you selected legacy, it's sda2, if you selected efi, it's sda3: `growpart /dev/sda 3 && resize2fs /dev/sda3`
 
