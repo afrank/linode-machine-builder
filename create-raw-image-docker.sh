@@ -27,6 +27,7 @@ time docker run \
     -e IMGSIZE=$IMGSIZE \
     -e ENABLE_CLOUDINIT=$ENABLE_CLOUDINIT \
     -e ENABLE_LISH=$ENABLE_LISH \
+    -e BOOT_MODE=$BOOT_MODE \
     --privileged \
     -v /dev:/dev \
     -e OUTDIR=/output \

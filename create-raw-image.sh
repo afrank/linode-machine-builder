@@ -8,6 +8,9 @@ fi
 LABEL=${LABEL:-linode1}
 DISTRO=${DISTRO:-debian}
 
+# currently Linode only supports legacy boot mode
+BOOT_MODE=${BOOT_MODE:-legacy}
+
 # Enabling console access is a nice convenience but 
 # also gives the cloud provider an extra way to get 
 # a shell on your server. Use with caution!
@@ -49,12 +52,23 @@ case $DISTRO in
     *) exit 1;;
 esac
 
-# legacy boot mode
-BOOT_PATH=/boot 
-BOOT_FS=ext4
-BOOT_ARGS="sync 0       2"
-BOOT_PKG="$BOOT_PKG grub-pc"
-BOOT_TARGET="--target=i386-pc"
+case $BOOT_MODE in
+    bios|legacy)
+        BOOT_PATH=/boot
+        BOOT_FS=ext4
+        BOOT_ARGS="sync 0       2"
+        BOOT_PKG="$BOOT_PKG grub-pc"
+        BOOT_TARGET="--target=i386-pc"
+    ;;
+    uefi|efi)
+        BOOT_PATH=/boot/efi
+        BOOT_FS=vfat
+        BOOT_ARGS="umask=0077 0       1"
+        BOOT_PKG="$BOOT_PKG grub-efi"
+        BOOT_TARGET="--target=x86_64-efi"
+    ;;
+    *) exit 1;;
+esac
 
 [[ -d $(dirname $FILE) ]] || mkdir -p $(dirname $FILE)
 
@@ -93,24 +107,45 @@ DISK=$(losetup -f)
 
 losetup $DISK $FILE || exit 2
 
-parted -a optimal --script -- $DISK \
-  mklabel msdos \
-  unit mib \
-  mkpart primary 1 256 \
-  set 1 boot on \
-  mkpart primary 256 -1
+case $BOOT_MODE in
+    bios|legacy)
+        bootnum=1
+        rootnum=2
+        parted -a optimal --script -- $DISK \
+          mklabel msdos \
+          unit mib \
+          mkpart primary 1 256 \
+          set 1 boot on \
+          mkpart primary 256 -1
+    ;;
+    efi|uefi)
+        bootnum=2
+        rootnum=3
+        parted -a optimal --script -- $DISK \
+          mklabel gpt \
+          unit mib \
+          mkpart primary 1 3 \
+          name 1 grub \
+          set 1 bios_grub on \
+          mkpart primary 3 131 \
+          name 2 boot \
+          set 2 boot on \
+          mkpart primary 131 -1 \
+          name 3 rootfs
+    ;;
+esac
 
 sleep 3
 
-mkfs.${BOOT_FS} ${DISK}p1 || fail "cannot create $BOOT_PATH $BOOT_FS"
-mkfs.ext4 -q ${DISK}p2 || fail "cannot create / ext4"
-mount ${DISK}p2 $MNT_DIR || fail "cannot mount /"
+mkfs.${BOOT_FS} ${DISK}p$bootnum || fail "cannot create $BOOT_PATH $BOOT_FS"
+mkfs.ext4 -q ${DISK}p$rootnum || fail "cannot create / ext4"
+mount ${DISK}p$rootnum $MNT_DIR || fail "cannot mount /"
 
 debootstrap --variant=minbase $COMPONENTS --include=$INCLUDES $RELEASE $MNT_DIR $MIRROR || fail "cannot install $RELEASE into $DISK"
 
 cat <<EOF > $MNT_DIR/etc/fstab
-/dev/sda1 $BOOT_PATH           ${BOOT_FS}    ${BOOT_ARGS}
-/dev/sda2 /                   ext4    errors=remount-ro 0       1
+/dev/sda$bootnum $BOOT_PATH           ${BOOT_FS}    ${BOOT_ARGS}
+/dev/sda$rootnum /                   ext4    errors=remount-ro 0       1
 EOF
 
 echo $LABEL > $MNT_DIR/etc/hostname
@@ -135,7 +170,7 @@ EOF
 mkdir -p ${MNT_DIR}${BOOT_PATH}
 
 mount --bind /dev/ $MNT_DIR/dev || fail "cannot bind /dev"
-chroot $MNT_DIR mount -t $BOOT_FS ${DISK}p1 $BOOT_PATH || fail "cannot mount $BOOT_PATH"
+chroot $MNT_DIR mount -t $BOOT_FS ${DISK}p$bootnum $BOOT_PATH || fail "cannot mount $BOOT_PATH"
 
 chroot $MNT_DIR mount -t proc none /proc || fail "cannot mount /proc"
 chroot $MNT_DIR mount -t sysfs none /sys || fail "cannot mount /sys"
@@ -160,8 +195,8 @@ chroot $MNT_DIR systemctl enable systemd-networkd || fail "failed to enable syst
 chroot $MNT_DIR systemctl enable ssh || fail "failed to enable sshd"
 [[ ${ENABLE_LISH:-0} -eq 1 ]] && chroot $MNT_DIR systemctl enable serial-getty@ttyS0.service
 
-sed -i "s|${DISK}p1|/dev/sda1|g" $MNT_DIR/boot/grub/grub.cfg
-sed -i "s|${DISK}p2|/dev/sda2|g" $MNT_DIR/boot/grub/grub.cfg
+sed -i "s|${DISK}p$bootnum|/dev/sda$bootnum|g" $MNT_DIR/boot/grub/grub.cfg
+sed -i "s|${DISK}p$rootnum|/dev/sda$rootnum|g" $MNT_DIR/boot/grub/grub.cfg
 
 mkdir -vp $MNT_DIR/root/.ssh
 chmod 750 $MNT_DIR/root/.ssh
