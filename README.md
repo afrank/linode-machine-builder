@@ -33,13 +33,9 @@ The image is built with `create-raw-image.sh`. This tool requires the following 
 
 The preferred method of running `create-raw-image.sh` is via docker by using `create-raw-image-docker.sh`. The requirements are docker support, and you must be able to run a privileged container as superuser. The reason privileged superuser is required is the process creates a loopback device in /dev.
 
-### Resizing your rootfs
+#### A note about rootfs resizing ####
 
-When you create a linode from your image, the disk you get will be larger than the image you created, so some process needs to resize your image to fit your disk. cloud-init will handle this if you choose to install it. If you don't install it, you can still perform this operation on your live disk (as long as you're increasing the size, not decreasing). The first time your vm boots, you can login and run these commands to resize it. Make note of your rootfs partition, if you selected legacy, it's sda2, if you selected efi, it's sda3:
-```
-growpart /dev/sda 3
-resize2fs /dev/sda3
-```
+When you create a linode from your image, the disk you get will be larger than the image you created, so some process needs to resize your image to fit your disk. cloud-init will handle this if you choose to install it. If you don't install it, you can still perform this operation on your live disk (as long as you're increasing the size, not decreasing). The first time your vm boots, you can login and run these commands to resize it. Make note of your rootfs partition, if you selected legacy, it's sda2, if you selected efi, it's sda3: `growpart /dev/sda 3 && resize2fs /dev/sda3`
 
 ## Uploading the image
 
