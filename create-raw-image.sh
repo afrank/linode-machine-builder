@@ -5,26 +5,34 @@ if [[ ! "$USER" = "root" && ! "$HOME" = "/root" ]]; then
     exit 2
 fi
 
-HOSTNAME=${1:-linode1}
-DISTRO=${2:-debian}
+LABEL=${LABEL:-linode1}
+DISTRO=${DISTRO:-debian}
 
-ENABLE_LISH=1
+# Enabling console access is a nice convenience but 
+# also gives the cloud provider an extra way to get 
+# a shell on your server. Use with caution!
+ENABLE_LISH=${ENABLE_LISH:-1}
+
+# cloud-init is involved in resizing the rootfs on first boot, 
+# so if you don't use it, you just need to run this on first boot:
+# growpart /dev/sda 2 && resize2fs /dev/sda2
+ENABLE_CLOUDINIT=${ENABLE_CLOUDINIT:-1}
 
 OUTDIR=${OUTDIR:-./}
 
-INCLUDES="openssh-server,init,iproute2,xz-utils,wget,parted,curl,dosfstools,vim,python3,initramfs-tools,ca-certificates,dbus,cloud-utils,cloud-initramfs-growroot,zstd,locales-all,libpam-systemd,dialog,apt-utils"
+# These are the packages installed during debootstrap. Extra packages 
+# installed after the base system is built can be added with the
+# comma-delimited environment variable EXTRA_INCLUDES
+INCLUDES="openssh-server,init,iproute2,xz-utils,wget,parted,curl,dosfstools,vim,python3,initramfs-tools,ca-certificates,dbus,cloud-utils,cloud-initramfs-growroot,zstd,locales-all,libpam-systemd,dialog,apt-utils,iputils-ping"
 
-# cloud-init is involved in resizing the rootfs on first boot, so if you don't use it,
-# you just need to run this on first boot:
-# growpart /dev/sda 2 && resize2fs /dev/sda2
-EXTRA_INCLUDES="cloud-init"
-
-IMGSIZE=2G
+IMGSIZE=${IMGSIZE:-2G}
 FILE=$OUTDIR/base.img
 
 NETWORK_MATCH="en*"
 
 MNT_DIR=$(mktemp -d)
+
+[[ ${ENABLE_CLOUDINIT:-0} -eq 1 ]] && EXTRA_INCLUDES="$EXTRA_INCLUDES,cloud-init"
 
 case $DISTRO in
     debian)
@@ -34,7 +42,7 @@ case $DISTRO in
     ;;
     ubuntu)
         MIRROR=${MIRROR:-"http://mirrors.linode.com/ubuntu"}
-        RELEASE=${RELEASE:-"focal"}
+        RELEASE=${RELEASE:-"jammy"}
         BOOT_PKG="linux-image-generic"
         COMPONENTS="--components=main,restricted,universe,multiverse"
     ;;
@@ -86,10 +94,12 @@ DISK=$(losetup -f)
 
 losetup $DISK $FILE || exit 2
 
-sfdisk $DISK -q << EOF 2>/dev/null || fail "cannot partition $FILE"
-,409600,83,*
-;
-EOF
+parted -a optimal --script -- $DISK \
+  mklabel msdos \
+  unit mib \
+  mkpart primary 1 256 \
+  set 1 boot on \
+  mkpart primary 256 -1
 
 sleep 3
 
@@ -104,10 +114,10 @@ cat <<EOF > $MNT_DIR/etc/fstab
 /dev/sda2 /                   ext4    errors=remount-ro 0       1
 EOF
 
-echo $HOSTNAME > $MNT_DIR/etc/hostname
+echo $LABEL > $MNT_DIR/etc/hostname
 
 cat <<EOF > $MNT_DIR/etc/hosts
-127.0.0.1     localhost $HOSTNAME
+127.0.0.1     localhost $LABEL
 ::1     localhost ip6-localhost ip6-loopback
 ff02::1     ip6-allnodes
 ff02::2     ip6-allrouters
@@ -154,12 +164,12 @@ sed -i "s|${DISK}p2|/dev/sda2|g" $MNT_DIR/boot/grub/grub.cfg
 
 mkdir -vp $MNT_DIR/root/.ssh
 chmod 750 $MNT_DIR/root/.ssh
-if [[ ! -e $OUTDIR/$HOSTNAME-id_rsa.pub ]]; then
-    ssh-keygen -t rsa -b 4096 -f $OUTDIR/$HOSTNAME-id_rsa -q -N "" || exit 2
-    [[ "$SUDO_USER" ]] && chown $SUDO_USER $OUTDIR/$HOSTNAME-id_rsa $OUTDIR/$HOSTNAME-id_rsa.pub
+if [[ ! -e $OUTDIR/$LABEL-id_rsa.pub ]]; then
+    ssh-keygen -t rsa -b 4096 -f $OUTDIR/$LABEL-id_rsa -q -N "" || exit 2
+    [[ "$SUDO_USER" ]] && chown $SUDO_USER $OUTDIR/$LABEL-id_rsa $OUTDIR/$LABEL-id_rsa.pub
 fi
 
-cat $OUTDIR/$HOSTNAME-id_rsa.pub > $MNT_DIR/root/.ssh/authorized_keys
+cat $OUTDIR/$LABEL-id_rsa.pub > $MNT_DIR/root/.ssh/authorized_keys
 chmod 640 $MNT_DIR/root/.ssh/authorized_keys
 
 truncate -s0 $MNT_DIR/etc/machine-id

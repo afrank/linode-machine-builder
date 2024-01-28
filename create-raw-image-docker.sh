@@ -11,9 +11,17 @@ IMG=machine-builder:$BUILD_TAG
 time docker build -t $IMG .
 
 time docker run \
+    #-e DISTRO=debian \
+    #-e RELEASE=sid \
+    #-e IMGSIZE=2G \
+    -e DISTRO=ubuntu \
+    -e RELEASE=jammy \
+    -e IMGSIZE=4G \
+    -e ENABLE_CLOUDINIT=1 \
+    -e ENABLE_LISH=1 \
     --privileged \
-    -e OUTDIR=/output \
     -v /dev:/dev \
+    -e OUTDIR=/output \
     -v $(pwd):/output \
     $IMG
 
