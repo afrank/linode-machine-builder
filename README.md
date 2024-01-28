@@ -8,7 +8,8 @@ You will need to have docker installed, and you will need sudo access. This shou
 
 Tl;dr:
 ```
-sudo ./create-raw-image-docker.sh
-./upload-raw-image.sh base.img.gz
-./create-raw-linode.sh private/<imgid> raw-test-1
+sudo DISTRO=ubuntu RELEASE=jammy IMGSIZE=4G ./create-raw-image-docker.sh
+./upload-raw-image.sh base.img.gz us-sea my-machine-image-1
+image_id=$(linode-cli images list --label my-machine-image-1 --json | jq -r '.[0].id')
+./create-raw-linode.sh $image_id my-ubuntu-machine-1
 ```
