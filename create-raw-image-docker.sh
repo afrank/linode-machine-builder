@@ -15,6 +15,9 @@ if [[ ! "$USER" = "root" ]]; then
     exit 2
 fi
 
+[[ -e PRE.sh && ! -x PRE.sh ]] && echo "Warning: Found PRE.sh but not executable, skipping."
+[[ -e POST.sh && ! -x POST.sh ]] && echo "Warning: Found POST.sh but not executable, skipping."
+
 BUILD_TAG=$(date +%m%d%H%M)
 IMG=machine-builder:$BUILD_TAG
 
@@ -29,8 +32,8 @@ time docker run \
     -e BOOT_MODE=$BOOT_MODE \
     --privileged \
     -v /dev:/dev \
-    -e OUTDIR=/output \
-    -v $(pwd):/output \
+    -e OUTDIR=/work \
+    -v $(pwd):/work \
     $IMG
 
 if [[ "$SUDO_USER" ]]; then

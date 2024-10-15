@@ -1,3 +1,7 @@
 *.img.gz
+*.img
 *id_rsa*
 old
+extra
+PRE.sh
+POST.sh

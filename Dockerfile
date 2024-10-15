@@ -1,11 +1,12 @@
 FROM debian:stable
 
 RUN apt-get -qq update \
-    && apt-get -q install --assume-yes debootstrap dosfstools parted openssh-client \
+    && apt-get -q install --assume-yes debootstrap dosfstools parted openssh-client rsync pigz \
     && apt-get clean
 
-WORKDIR /work
+RUN touch /usr/local/bin/udevadm \
+    && chmod +x /usr/local/bin/udevadm
 
-COPY create-raw-image.sh /work/
+WORKDIR /work
 
 CMD /work/create-raw-image.sh

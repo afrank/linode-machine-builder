@@ -1,5 +1,7 @@
 #!/bin/bash
 
+[[ -x PRE.sh ]] && source PRE.sh
+
 if [[ ! "$USER" = "root" && ! "$HOME" = "/root" ]]; then
     echo "Error: This command must be run with superuser privileges. Sorry."
     exit 2
@@ -236,10 +238,13 @@ truncate -s0 $MNT_DIR/etc/machine-id
 
 echo nameserver $NAMESERVER > $MNT_DIR/etc/resolv.conf
 
+[[ -x POST.sh ]] && source POST.sh
+
 cleanup
 
 [[ -e $FILE.gz ]] && rm -f $FILE.gz
-gzip $FILE
+echo "Compressing $FILE"
+pigz $FILE
 
 FILE=$FILE.gz
 
