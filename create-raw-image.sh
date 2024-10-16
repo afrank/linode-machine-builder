@@ -219,6 +219,10 @@ if [[ "$BOOT_MODE" = "efi" && ${OVERRIDE_EFI_MODE:-0} -eq 1 ]]; then
     chroot $MNT_DIR update-grub || fail "failed overriding grub"
 fi
 
+if [[ "$CRYPT_PASSWORD" ]]; then
+    echo root:$CRYPT_PASSWORD | chroot $MNT_DIR chpasswd -e
+fi
+
 mkdir -vp $MNT_DIR/root/.ssh
 chmod 750 $MNT_DIR/root/.ssh
 if [[ ! -e $PUBKEY ]]; then
